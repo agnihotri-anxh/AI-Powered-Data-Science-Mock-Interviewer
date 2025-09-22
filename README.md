@@ -1,6 +1,9 @@
 # AI-Powered Data Science Mock Interviewer
 
 An intelligent mock interview system that generates data science questions from "The Hundred-Page Machine Learning Book" and evaluates your responses using AI.
+<img width="1829" height="894" alt="Screenshot 2025-09-22 161455" src="https://github.com/user-attachments/assets/413a68cd-5d9f-4bc9-98c1-292d2e008a36" />
+<img width="1810" height="884" alt="Screenshot 2025-09-22 162159" src="https://github.com/user-attachments/assets/1f1d646a-d17d-4f8c-bbfe-ba5ffd2f6535" />
+<img width="1522" height="865" alt="Screenshot 2025-09-22 162731" src="https://github.com/user-attachments/assets/0e65c8f6-771e-4079-93c1-d95780557a03" />
 
 ## Features
 
