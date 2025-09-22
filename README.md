@@ -119,7 +119,7 @@ AI Powered Data Scince Interviewer/
 
 - **Backend**: Python, Flask
 - **AI Orchestration**: LangChain
-- **LLM**: Groq (`llama-3.1-8b-instant`)
+- **LLM**: Groq (`mixtral-8x7b-32768`)
 - **Embeddings & Vector Search**: sentence-transformers, FAISS
 - **Auth & Data**: Flask-Login session + MongoDB (`flask-pymongo`)
 - **TTS**: ElevenLabs
@@ -129,3 +129,37 @@ AI Powered Data Scince Interviewer/
 
 This project is for educational purposes. Please respect the copyright of
 "The Hundred-Page Machine Learning Book".
+Use it inside an itemize list. Example second bullet:
+```latex
+\begin{itemize}
+  \item Built mock interviewer leveraging RAG over ML book content
+  \item Implemented FAISS-based retrieval with Groq LLM; added relevance checks and final scoring
+\end{itemize}
+```### LaTeX snippet for your resume
+
+```latex
+% Projects section entry (works in most resume templates)
+\section{Projects}
+\noindent\textbf{AI-Powered Data Science Mock Interviewer} \hfill \textit{Python, Flask, LangChain, Groq, FAISS, MongoDB, ElevenLabs} \\
+\href{https://github.com/agnihotri-anxh/AI-Powered-Data-Science-Mock-Interviewer}{github.com/agnihotri-anxh/AI-Powered-Data-Science-Mock-Interviewer} \hfill \textit{2025}
+\begin{itemize}\itemsep 0.2em
+  \item Built a mock interviewer that generates contextual questions from “The Hundred-Page Machine Learning Book” and evaluates answers with LLMs.
+  \item Implemented retrieval-augmented generation using sentence-transformer embeddings with FAISS and a Groq-hosted model for question generation.
+  \item Added relevance checking and a final comprehensive evaluation after 10 Q\&A pairs (summary, strengths, improvements, score).
+  \item Developed user auth with MongoDB (signup/login, session management) and input validation for topic/answer quality.
+  \item Integrated ElevenLabs TTS to synthesize questions; created a clean Tailwind UI for interview flow.
+  \item Automated PDF ingestion pipeline to build a reusable vector knowledge base.
+\end{itemize}
+```
+
+If your template uses a “Work/Project” entry format with dates/location, you can wrap it like:
+
+```latex
+\textbf{AI-Powered Data Science Mock Interviewer} \hfill \textit{Remote \quad 2025}\\
+\textit{Python, Flask, LangChain, Groq, FAISS, MongoDB, ElevenLabs} \hfill
+\href{https://github.com/agnihotri-anxh/AI-Powered-Data-Science-Mock-Interviewer}{GitHub}
+\begin{itemize}\itemsep 0.2em
+  \item Built RAG-driven interviewer; generated questions from curated ML book context; delivered final scored feedback.
+  \item Implemented FAISS vector store, relevance checks, MongoDB auth, and TTS for accessibility.
+\end{itemize}
+```

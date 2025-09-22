@@ -44,7 +44,7 @@ if not groq_api_key or not elevenlabs_api_key:
     raise ValueError("API keys for Groq and ElevenLabs must be set in the .env file.")
 
 elevenlabs_client = ElevenLabs(api_key=elevenlabs_api_key)
-llm = ChatGroq(model_name="llama-3.1-8b-instant")
+llm = ChatGroq(model_name="mixtral-8x7b-32768")
 
 
 # --- KNOWLEDGE BASE LOADING ---
