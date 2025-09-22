@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Data Science Mock Interviewer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        #chat-container::-webkit-scrollbar { width: 8px; }
+        #chat-container::-webkit-scrollbar-track { background: #f1f5f9; }
+        #chat-container::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; }
+        #chat-container::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        .ai-message .avatar { background-color: #8b5cf6; }
+        .user-message .avatar { background-color: #3b82f6; }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #8b5cf6;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 flex flex-col items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-4xl h-[90vh] bg-white rounded-2xl shadow-2xl flex flex-col">
+        <!-- Header -->
+        <header class="p-4 border-b border-slate-200 flex items-center justify-between">
+            <div>
+                <h1 class="text-xl font-bold text-slate-800">AI Data Science Interviewer</h1>
+                <p class="text-sm text-slate-500">Powered by "The Hundred-Page Machine Learning Book"</p>
+            </div>
+            <div class="flex items-center gap-4">
+                 <button id="mute-button" class="text-slate-500 hover:text-purple-600 focus:outline-none" title="Toggle Audio">
+                    <svg id="speaker-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+                    <svg id="speaker-muted-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="hidden"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" x2="16" y1="9" y2="15"/><line x1="16" x2="22" y1="9" y2="15"/></svg>
+                </button>
+                <div id="status-indicator" class="w-3 h-3 bg-green-500 rounded-full" title="Ready"></div>
+            </div>
+        </header>
+
+        <!-- Chat Container -->
+        <div id="chat-container" class="flex-1 p-6 overflow-y-auto space-y-6">
+            <!-- Welcome Message -->
+            <div class="flex items-start gap-3 ai-message">
+                <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold avatar shrink-0">AI</div>
+                <div class="bg-slate-50 p-4 rounded-lg rounded-tl-none max-w-xl shadow-sm">
+                    <p class="text-slate-700">Hello! I'm your AI-powered mock interviewer. To begin, please enter a data science topic below (e.g., "Overfitting", "Gradient Descent", or "Support Vector Machines"), and I'll ask you a question about it.</p>
+                    <div class="mt-3 p-3 bg-blue-50 rounded-lg border-l-4 border-blue-400">
+                        <p class="text-sm text-blue-800"><strong>💡 Tips for better answers:</strong></p>
+                        <ul class="text-xs text-blue-700 mt-1 space-y-1">
+                            <li>• Provide technical explanations when possible</li>
+                            <li>• If unsure, say "I don't know" to move on</li>
+                            <li>• Stay focused on data science topics</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <footer class="p-4 bg-white border-t border-slate-200">
+            <form id="message-form" class="flex items-center gap-3">
+                <input type="text" id="message-input" placeholder="Enter a topic or your answer..." class="flex-1 p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition duration-200" autocomplete="off">
+                <button type="submit" id="send-button" class="bg-purple-600 text-white font-semibold px-6 py-3 rounded-lg hover:bg-purple-700 transition duration-200 disabled:bg-purple-300 disabled:cursor-not-allowed flex items-center justify-center">Send</button>
+            </form>
+        </footer>
+    </div>
+
+    <script>
+        const chatContainer = document.getElementById('chat-container');
+        const messageForm = document.getElementById('message-form');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        const statusIndicator = document.getElementById('status-indicator');
+        const muteButton = document.getElementById('mute-button');
+        const speakerIcon = document.getElementById('speaker-icon');
+        const speakerMutedIcon = document.getElementById('speaker-muted-icon');
+
+        let interviewState = 'AWAITING_TOPIC';
+        let currentQuestion = '';
+        let isMuted = false;
+        let currentAudio = null;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const welcomeText = document.querySelector('.ai-message p').textContent;
+            playAudio(welcomeText);
+        });
+
+        muteButton.addEventListener('click', () => {
+            isMuted = !isMuted;
+            speakerIcon.classList.toggle('hidden', isMuted);
+            speakerMutedIcon.classList.toggle('hidden', !isMuted);
+            if (isMuted && currentAudio) {
+                currentAudio.pause();
+                currentAudio = null;
+            }
+        });
+
+        messageForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const userInput = messageInput.value.trim();
+            if (!userInput) return;
+            
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio = null;
+            }
+
+            toggleLoading(true);
+            messageInput.value = '';
+
+            if (interviewState === 'AWAITING_TOPIC') {
+                displayMessage(userInput, 'user');
+                await getQuestion(userInput);
+            } else {
+                displayMessage(userInput, 'user');
+                await getEvaluation(userInput);
+            }
+            toggleLoading(false);
+        });
+
+        function displayMessage(message, sender) {
+            const isAI = sender === 'ai';
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `flex items-start gap-3 ${isAI ? 'ai-message' : 'user-message flex-row-reverse'}`;
+            
+            const avatar = `<div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold avatar shrink-0">${isAI ? 'AI' : 'You'}</div>`;
+            const textBubble = `<div class="p-4 rounded-lg max-w-xl shadow-sm ${isAI ? 'bg-slate-50 rounded-tl-none' : 'bg-blue-500 text-white rounded-tr-none'}"><p>${message.replace(/\n/g, '<br>')}</p></div>`;
+            
+            messageDiv.innerHTML = avatar + textBubble;
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        async function playAudio(text) {
+            if (isMuted || !text) return;
+            if (currentAudio) {
+                currentAudio.pause();
+            }
+            try {
+                const response = await fetch('/synthesize', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text })
+                });
+                if (!response.ok) throw new Error(`Audio synthesis failed`);
+                
+                const blob = await response.blob();
+                const audioUrl = URL.createObjectURL(blob);
+                currentAudio = new Audio(audioUrl);
+                currentAudio.play();
+                currentAudio.addEventListener('ended', () => { currentAudio = null; });
+            } catch (error) {
+                console.error("Audio playback error:", error);
+            }
+        }
+
+        function displayLoadingIndicator() {
+            const loadingDiv = document.createElement('div');
+            loadingDiv.id = 'loading-indicator';
+            loadingDiv.className = 'flex items-start gap-3 ai-message';
+            loadingDiv.innerHTML = `
+                <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold avatar">AI</div>
+                <div class="bg-slate-50 p-4 rounded-lg rounded-tl-none max-w-xl shadow-sm flex items-center"><div class="loader"></div></div>`;
+            chatContainer.appendChild(loadingDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function removeLoadingIndicator() {
+            document.getElementById('loading-indicator')?.remove();
+        }
+
+        async function getQuestion(topic) {
+            displayLoadingIndicator();
+            try {
+                const response = await fetch('/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ topic }) });
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+                
+                removeLoadingIndicator();
+                
+                if (data.error) {
+                    // Handle topic validation errors
+                    displayMessage(data.error, 'ai');
+                    await playAudio(data.error);
+                    interviewState = 'AWAITING_TOPIC';
+                    messageInput.placeholder = "Enter a data science topic...";
+                } else {
+                    currentQuestion = data.question;
+                    displayMessage(currentQuestion, 'ai');
+                    await playAudio(currentQuestion);
+                    
+                    interviewState = 'AWAITING_ANSWER';
+                    messageInput.placeholder = "Type your answer here...";
+                }
+            } catch (error) {
+                console.error("Error fetching question:", error);
+                removeLoadingIndicator();
+                displayMessage("Sorry, I encountered an error. Please try another topic.", 'ai');
+            }
+        }
+
+        async function getEvaluation(answer) {
+            displayLoadingIndicator();
+            try {
+                const response = await fetch('/submit_answer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: currentQuestion, answer }) });
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+                
+                removeLoadingIndicator();
+                
+                if (data.interview_over) {
+                    // Interview is complete - show final feedback
+                    displayMessage(data.feedback, 'ai');
+                    await playAudio(data.feedback);
+                    interviewState = 'AWAITING_TOPIC';
+                    messageInput.placeholder = "Interview complete! Enter a new topic to start again...";
+                    currentQuestion = '';
+                } else {
+                    // Continue with follow-up message
+                    displayMessage(data.message, 'ai');
+                    await playAudio(data.message);
+                    
+                    // Check if this is a guidance message for off-topic response
+                    if (data.message.includes("doesn't seem to relate") || data.message.includes("not a proper answer")) {
+                        interviewState = 'AWAITING_ANSWER'; // Stay in answer mode
+                        messageInput.placeholder = "Please provide a relevant answer to the question...";
+                    } else {
+                        interviewState = 'AWAITING_TOPIC';
+                        messageInput.placeholder = "Enter a new topic...";
+                        currentQuestion = '';
+                    }
+                }
+            } catch (error) {
+                console.error("Error fetching evaluation:", error);
+                removeLoadingIndicator();
+                displayMessage("Sorry, I had trouble evaluating that. Please provide a new topic.", 'ai');
+            }
+        }
+        
+        function toggleLoading(isLoading) {
+            sendButton.disabled = isLoading;
+            messageInput.disabled = isLoading;
+            statusIndicator.classList.toggle('animate-pulse', isLoading);
+            statusIndicator.classList.toggle('bg-yellow-500', isLoading);
+            statusIndicator.classList.toggle('bg-green-500', !isLoading);
+        }
+    </script>
+</body>
+</html>
+

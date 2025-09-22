@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Mock Interviewer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif;
+            background-color: #0F172A; /* bg-slate-900 */
+        }
+    </style>
+</head>
+<body class="text-slate-200 flex flex-col min-h-screen">
+    <!-- Header -->
+    <header class="container mx-auto px-6 py-8 flex justify-between items-center">
+        <div class="flex items-center gap-3">
+            <svg class="w-8 h-8 text-purple-400" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
+            <span class="text-xl font-bold">AI Interviewer</span>
+        </div>
+        <nav class="flex items-center gap-4">
+            {% if session['username'] %}
+                <a href="{{ url_for('logout') }}" class="text-sm font-medium bg-red-500 hover:bg-red-600 px-4 py-2 rounded-lg transition">Logout</a>
+            {% else %}
+                <a href="{{ url_for('login') }}" class="text-sm font-medium hover:text-purple-300 transition">Login</a>
+                <a href="{{ url_for('signup') }}" class="text-sm font-medium bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition">Sign Up</a>
+            {% endif %}
+        </nav>
+    </header>
+
+    <!-- Hero Section -->
+    <main class="flex-grow flex items-center">
+        <div class="container mx-auto px-6 text-center">
+            <h1 class="text-4xl md:text-6xl font-extrabold leading-tight">
+                Master Your <span class="bg-gradient-to-r from-purple-500 to-blue-500 text-transparent bg-clip-text">Data Science</span> Interviews
+            </h1>
+            <p class="mt-6 max-w-2xl mx-auto text-lg text-slate-400">
+                Land your dream job with our AI-powered interview simulator. Real questions based on core concepts, instant analysis, and proven results.
+            </p>
+            <div class="mt-10 flex justify-center items-center gap-4">
+                {% if session['username'] %}
+                    <div class="bg-slate-700/50 text-slate-300 text-sm px-4 py-3 rounded-lg">
+                        Welcome back, <span class="font-bold text-white">{{ session.get('full_name', session['username']) }}</span>!
+                    </div>
+                    <a href="{{ url_for('interview') }}" class="bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90 text-white font-semibold px-6 py-3 rounded-lg transition">
+                        Start Interview
+                    </a>
+                {% else %}
+                    <a href="{{ url_for('signup') }}" class="bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90 text-white font-semibold px-6 py-3 rounded-lg transition">
+                        Get Started For Free
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center py-8 text-slate-500 text-sm">
+        <p>&copy; 2025 AI Interviewer. All Rights Reserved.</p>
+    </footer>
+</body>
+</html>
