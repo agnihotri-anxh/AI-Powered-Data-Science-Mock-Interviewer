@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  # MongoDB service
+  mongodb:
+    image: mongo:7.0
+    container_name: ai-interviewer-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - ai-interviewer-network
+
+  # Flask application
+  app:
+    build: .
+    container_name: ai-interviewer-app
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      # MongoDB connection
+      MONGO_URI: mongodb://admin:password123@mongodb:27017/?authSource=admin
+      MONGODB_DB: AI-Interviewer-DB
+      MONGODB_USERS_COLLECTION: users
+      
+      # Flask configuration
+      SECRET_KEY: your-super-secret-key-change-this-in-production
+      FLASK_APP: app.py
+      FLASK_ENV: production
+      
+      # API Keys (set these in your .env file or environment)
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY}
+    depends_on:
+      - mongodb
+    volumes:
+      - ./knowledge_base:/app/knowledge_base
+      - ./The Hundred-Page Machine Learning Book.pdf:/app/The Hundred-Page Machine Learning Book.pdf
+    networks:
+      - ai-interviewer-network
+
+volumes:
+  mongodb_data:
+
+networks:
+  ai-interviewer-network:
+    driver: bridge
