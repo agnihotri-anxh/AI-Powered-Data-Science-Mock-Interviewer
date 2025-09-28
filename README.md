@@ -22,13 +22,64 @@ An intelligent mock interview system that generates data science questions from 
 
 ## Quick Start
 
-### 1) Install dependencies
+### Option 1: Docker Deployment (Recommended)
+
+#### Prerequisites for Docker
+- Docker and Docker Compose installed
+- API keys: Groq (`GROQ_API_KEY`) and ElevenLabs (`ELEVENLABS_API_KEY`)
+- The PDF file: `The Hundred-Page Machine Learning Book.pdf` in the project root
+
+#### 1) Clone the repository
+```bash
+git clone https://github.com/agnihotri-anxh/AI-Powered-Data-Science-Mock-Interviewer.git
+cd AI-Powered-Data-Science-Mock-Interviewer
+```
+
+#### 2) Set up environment variables
+Create a `.env` file in the project root:
+```bash
+# Copy the example file
+cp env_example.txt .env
+```
+
+Edit `.env` and set your API keys:
+```env
+GROQ_API_KEY=your_groq_api_key_here
+ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
+SECRET_KEY=your_super_secret_key_here
+```
+
+#### 3) Build and run with Docker Compose
+```bash
+# Build and start all services (Flask app + MongoDB)
+docker-compose up --build
+
+# Or run in detached mode
+docker-compose up -d --build
+```
+
+The application will be available at `http://localhost:5000`
+
+#### 4) Build the knowledge base (first time only)
+```bash
+# Run the knowledge base extraction inside the container
+docker-compose exec app python run_extraction.py
+```
+
+#### 5) Stop the services
+```bash
+docker-compose down
+```
+
+### Option 2: Local Development
+
+#### 1) Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2) Configure environment variables
+#### 2) Configure environment variables
 
 Create a `.env` file in the project root. On Windows PowerShell:
 
@@ -44,7 +95,7 @@ Then edit `.env` and set at least:
 - `SECRET_KEY=<any_random_secret_string>`
 - Optional: `MONGODB_DB` (default: `AI-Interviewer-DB`), `MONGODB_USERS_COLLECTION` (default: `users`)
 
-### 3) Build the knowledge base
+#### 3) Build the knowledge base
 
 Make sure the PDF is present as `The Hundred-Page Machine Learning Book.pdf` and run:
 
@@ -54,7 +105,7 @@ python run_extraction.py
 
 This will create `knowledge_base/index.faiss` and `knowledge_base/index.pkl`.
 
-### 4) Start the app
+#### 4) Start the app
 
 ```bash
 python app.py
@@ -89,6 +140,10 @@ AI Powered Data Scince Interviewer/
 ├── run_extraction.py              # Builds the knowledge base
 ├── requirements.txt               # Python dependencies
 ├── env_example.txt                # .env template
+├── Dockerfile                     # Docker configuration
+├── docker-compose.yml             # Docker Compose setup
+├── .dockerignore                  # Docker ignore file
+├── .gitignore                     # Git ignore file
 ├── templates/
 │   ├── index.html                 # Interview UI
 │   ├── landing_page.html          # Landing page
