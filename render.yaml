@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: ai-interviewer
+    env: python
+    buildCommand: pip install -r requirements.txt && python run_extraction.py
+    startCommand: python app.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: FLASK_APP
+        value: app.py
+      - key: FLASK_ENV
+        value: production
+    healthCheckPath: /
+    plan: free

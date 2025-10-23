@@ -1,4 +1,6 @@
 import os
+import gc
+import psutil
 from flask import Flask, render_template, request, jsonify, Response, session, redirect, url_for, flash
 from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -17,6 +19,16 @@ import re
 load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "a-super-secret-key-that-should-be-changed")
+
+# Memory optimization: Force garbage collection
+gc.collect()
+
+# Print initial memory usage
+def print_memory_usage(stage=""):
+    memory_info = psutil.virtual_memory()
+    print(f"🧠 Memory Usage {stage}: {memory_info.percent:.1f}% ({memory_info.used / 1024 / 1024:.1f} MB / {memory_info.total / 1024 / 1024:.1f} MB)")
+
+print_memory_usage("(Startup)")
 
 # --- MONGODB CONFIGURATION ---
 DB_NAME = os.getenv("MONGODB_DB", "AI-Interviewer-DB")
@@ -40,17 +52,27 @@ except ConnectionFailure as e:
 groq_api_key = os.getenv("GROQ_API_KEY")
 elevenlabs_api_key = os.getenv("ELEVENLABS_API_KEY")
 
-if not groq_api_key or not elevenlabs_api_key:
-    raise ValueError("API keys for Groq and ElevenLabs must be set in the .env file.")
+if not groq_api_key:
+    raise ValueError("GROQ_API_KEY must be set in the .env file.")
 
-elevenlabs_client = ElevenLabs(api_key=elevenlabs_api_key)
+# Initialize LLM (ElevenLabs is optional for memory optimization)
 llm = ChatGroq(model_name="mixtral-8x7b-32768")
+elevenlabs_client = None
+
+if elevenlabs_api_key:
+    elevenlabs_client = ElevenLabs(api_key=elevenlabs_api_key)
+    print("✅ ElevenLabs client initialized.")
+else:
+    print("⚠️ ElevenLabs API key not found. Audio features will be disabled.")
 
 
 # --- KNOWLEDGE BASE LOADING ---
 try:
+    print("🔄 Loading knowledge base...")
     vectorstore = DataScienceKnowledgeExtractor.load_knowledge_base()
     retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+    print_memory_usage("(After Knowledge Base Load)")
+    gc.collect()  # Force garbage collection after loading
 except FileNotFoundError:
     print("\n[ERROR] Knowledge base not found. Please run 'python run_extraction.py' first.\n")
     exit()
@@ -331,6 +353,8 @@ def submit_answer():
 @app.route("/synthesize", methods=["POST"])
 def synthesize():
     if 'username' not in session: return jsonify({"error": "Unauthorized"}), 401
+    if not elevenlabs_client: return jsonify({"error": "Audio features disabled"}), 503
+    
     data = request.get_json()
     text = data.get("text")
     if not text: return jsonify({"error": "Text not provided"}), 400
@@ -351,6 +375,7 @@ def synthesize():
 # --- MAIN EXECUTION ---
 if __name__ == "__main__":
     print("Starting Flask server...")
+    print_memory_usage("(Final)")
     print("Access the application at http://127.0.0.1:5000")
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5000, threaded=True)
 

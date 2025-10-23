@@ -27,11 +27,12 @@ class DataScienceKnowledgeExtractor:
         self.documents = []
         self.vectorstore = None
         
-        # Use a popular, high-performance embedding model
-        print("   -> Initializing embedding model (all-MiniLM-L6-v2)...")
+        # Use a lightweight, memory-efficient embedding model
+        print("   -> Initializing lightweight embedding model (paraphrase-MiniLM-L6-v2)...")
         self.embedding_model = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2",
-            model_kwargs={'device': 'cpu'} # Use CPU for broad compatibility
+            model_name="sentence-transformers/paraphrase-MiniLM-L6-v2",
+            model_kwargs={'device': 'cpu'}, # Use CPU for broad compatibility
+            encode_kwargs={'normalize_embeddings': True} # Normalize for better performance
         )
         print("   -> Embedding model initialized.")
 
@@ -44,10 +45,10 @@ class DataScienceKnowledgeExtractor:
         raw_documents = loader.load()
         print(f"   -> Loaded {len(raw_documents)} pages from PDF.")
 
-        print("   -> Splitting documents into chunks...")
+        print("   -> Splitting documents into optimized chunks...")
         text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=100,
+            chunk_size=800,  # Reduced for memory efficiency
+            chunk_overlap=80,  # Reduced overlap
             separators=["\n\n", "\n", ".", " "]
         )
         self.documents = text_splitter.split_documents(raw_documents)
@@ -103,8 +104,9 @@ class DataScienceKnowledgeExtractor:
         print("   -> Loading knowledge base...")
         # --- UPDATED CLASS USAGE ---
         embedding_model = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2",
-            model_kwargs={'device': 'cpu'}
+            model_name="sentence-transformers/paraphrase-MiniLM-L6-v2",
+            model_kwargs={'device': 'cpu'},
+            encode_kwargs={'normalize_embeddings': True}
         )
         vectorstore = FAISS.load_local(knowledge_base_dir, embedding_model, allow_dangerous_deserialization=True)
         print("   -> Knowledge base loaded successfully.")
