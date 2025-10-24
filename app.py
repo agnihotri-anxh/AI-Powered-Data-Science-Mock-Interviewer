@@ -499,6 +499,7 @@ if __name__ == "__main__":
     # Use production settings for Render deployment
     debug_mode = os.getenv("FLASK_ENV") != "production"
     port = int(os.getenv("PORT", 5000))
+    host = "0.0.0.0" if os.getenv("FLASK_ENV") == "production" else "127.0.0.1"
     
-    app.run(debug=debug_mode, port=port, threaded=True)
+    app.run(debug=debug_mode, host=host, port=port, threaded=True)
 
