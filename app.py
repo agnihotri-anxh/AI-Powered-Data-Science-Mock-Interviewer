@@ -59,15 +59,27 @@ elevenlabs_api_key = os.getenv("ELEVENLABS_API_KEY")
 if not groq_api_key:
     raise ValueError("GROQ_API_KEY must be set in the .env file.")
 
-# Initialize LLM (ElevenLabs is optional for memory optimization)
-llm = ChatGroq(model_name="mixtral-8x7b-32768")
+# Lazy loading for LLM and ElevenLabs
+llm = None
 elevenlabs_client = None
 
-if elevenlabs_api_key:
-    elevenlabs_client = ElevenLabs(api_key=elevenlabs_api_key)
-    print("✅ ElevenLabs client initialized.")
-else:
-    print("⚠️ ElevenLabs API key not found. Audio features will be disabled.")
+def get_llm():
+    """Lazy load the LLM only when needed"""
+    global llm
+    if llm is None:
+        print("🔄 Loading LLM model...")
+        llm = ChatGroq(model_name="mixtral-8x7b-32768")
+        print("✅ LLM model loaded")
+    return llm
+
+def get_elevenlabs_client():
+    """Lazy load ElevenLabs client only when needed"""
+    global elevenlabs_client
+    if elevenlabs_client is None and elevenlabs_api_key:
+        print("🔄 Loading ElevenLabs client...")
+        elevenlabs_client = ElevenLabs(api_key=elevenlabs_api_key)
+        print("✅ ElevenLabs client loaded")
+    return elevenlabs_client
 
 
 # --- KNOWLEDGE BASE CONFIGURATION ---
@@ -170,15 +182,22 @@ final_evaluation_prompt = ChatPromptTemplate.from_template(final_evaluation_temp
 
 
 def create_question_generation_chain():
-    """Create the question generation chain with lazy-loaded retriever"""
+    """Create the question generation chain with lazy-loaded retriever and LLM"""
     _, retriever = get_knowledge_base()
+    llm = get_llm()
     return (
         {"context": retriever, "topic": RunnablePassthrough()} | question_prompt | llm | StrOutputParser()
     )
 
-relevance_check_chain = relevance_prompt | llm | StrOutputParser()
+def create_relevance_check_chain():
+    """Create the relevance check chain with lazy-loaded LLM"""
+    llm = get_llm()
+    return relevance_prompt | llm | StrOutputParser()
 
-final_evaluation_chain = final_evaluation_prompt | llm | StrOutputParser()
+def create_final_evaluation_chain():
+    """Create the final evaluation chain with lazy-loaded LLM"""
+    llm = get_llm()
+    return final_evaluation_prompt | llm | StrOutputParser()
 
 
 # --- AUTHENTICATION ROUTES ---
@@ -406,6 +425,7 @@ def submit_answer():
     
     if not user_is_skipping and len(answer.strip()) > 10:
         try:
+            relevance_check_chain = create_relevance_check_chain()
             relevance_result = relevance_check_chain.invoke({"question": question, "answer": answer})
             if relevance_result.startswith("NOT_RELEVANT"):
                 answer_is_relevant = False
@@ -429,6 +449,7 @@ def submit_answer():
             transcript += f"Question {i+1}: {item['question']}\nAnswer {i+1}: {item['answer']}\n\n"
         
         try:
+            final_evaluation_chain = create_final_evaluation_chain()
             final_feedback = final_evaluation_chain.invoke({"interview_transcript": transcript})
             session.pop('interview_history', None)
             return jsonify({"feedback": final_feedback, "interview_over": True})
@@ -448,6 +469,8 @@ def submit_answer():
 @app.route("/synthesize", methods=["POST"])
 def synthesize():
     if 'username' not in session: return jsonify({"error": "Unauthorized"}), 401
+    
+    elevenlabs_client = get_elevenlabs_client()
     if not elevenlabs_client: return jsonify({"error": "Audio features disabled"}), 503
     
     data = request.get_json()
@@ -472,5 +495,10 @@ if __name__ == "__main__":
     print("Starting Flask server...")
     print_memory_usage("(Startup)")
     print("Access the application at http://127.0.0.1:5000")
-    app.run(debug=True, port=5000, threaded=True)
+    
+    # Use production settings for Render deployment
+    debug_mode = os.getenv("FLASK_ENV") != "production"
+    port = int(os.getenv("PORT", 5000))
+    
+    app.run(debug=debug_mode, port=port, threaded=True)
 
