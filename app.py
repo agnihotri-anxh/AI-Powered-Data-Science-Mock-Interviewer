@@ -23,8 +23,14 @@ app.secret_key = os.getenv("SECRET_KEY", "a-super-secret-key-that-should-be-chan
 gc.collect()
 
 def print_memory_usage(stage=""):
+    """Simplified memory monitoring"""
     memory_info = psutil.virtual_memory()
-    print(f"🧠 Memory Usage {stage}: {memory_info.percent:.1f}% ({memory_info.used / 1024 / 1024:.1f} MB / {memory_info.total / 1024 / 1024:.1f} MB)")
+    print(f"🧠 Memory {stage}: {memory_info.percent:.1f}% ({memory_info.used / 1024 / 1024:.1f} MB)")
+    
+    # Force garbage collection if memory usage is high
+    if memory_info.percent > 70:
+        collected = gc.collect()
+        print(f"🗑️ GC: {collected} objects")
 
 print_memory_usage("(Startup)")
 
@@ -64,16 +70,35 @@ else:
     print("⚠️ ElevenLabs API key not found. Audio features will be disabled.")
 
 
-# --- KNOWLEDGE BASE LOADING ---
-try:
-    print("🔄 Loading knowledge base...")
-    vectorstore = DataScienceKnowledgeExtractor.load_knowledge_base()
-    retriever = vectorstore.as_retriever(search_kwargs={"k": 2})  # Reduced from 3 to 2
-    print_memory_usage("(After Knowledge Base Load)")
-    gc.collect()  # Force garbage collection after loading
-except FileNotFoundError:
-    print("\n[ERROR] Knowledge base not found. Please run 'python run_extraction.py' first.\n")
-    exit()
+# --- KNOWLEDGE BASE CONFIGURATION ---
+# Lazy loading - knowledge base will be loaded on first use
+vectorstore = None
+retriever = None
+
+def get_knowledge_base():
+    """Lazy load the knowledge base only when needed"""
+    global vectorstore, retriever
+    
+    if vectorstore is None:
+        try:
+            print("🔄 Loading knowledge base...")
+            print_memory_usage("(Before KB Load)")
+            
+            vectorstore = DataScienceKnowledgeExtractor.load_knowledge_base()
+            retriever = vectorstore.as_retriever(search_kwargs={"k": 2})
+            
+            print_memory_usage("(After KB Load)")
+            gc.collect()
+            print("✅ Knowledge base loaded")
+        except FileNotFoundError:
+            print("\n[ERROR] Knowledge base not found. Run 'python run_extraction.py' first.\n")
+            raise
+        except Exception as e:
+            print(f"\n[ERROR] Failed to load knowledge base: {e}\n")
+            gc.collect()
+            raise
+    
+    return vectorstore, retriever
 
 
 # --- PROMPT TEMPLATES & LANGCHAIN CHAINS ---
@@ -144,9 +169,12 @@ Your feedback must include the following sections:
 final_evaluation_prompt = ChatPromptTemplate.from_template(final_evaluation_template)
 
 
-question_generation_chain = (
-    {"context": retriever, "topic": RunnablePassthrough()} | question_prompt | llm | StrOutputParser()
-)
+def create_question_generation_chain():
+    """Create the question generation chain with lazy-loaded retriever"""
+    _, retriever = get_knowledge_base()
+    return (
+        {"context": retriever, "topic": RunnablePassthrough()} | question_prompt | llm | StrOutputParser()
+    )
 
 relevance_check_chain = relevance_prompt | llm | StrOutputParser()
 
@@ -342,10 +370,12 @@ def ask_question():
         if 'interview_history' not in session:
             session['interview_history'] = []
         
+        question_generation_chain = create_question_generation_chain()
         result = question_generation_chain.invoke(topic)
         return jsonify({"question": result})
     except Exception as e:
         print(f"Error in /ask: {e}")
+        gc.collect()
         return jsonify({"error": "Failed to generate question"}), 500
 
 @app.route("/submit_answer", methods=["POST"])
@@ -440,7 +470,7 @@ def synthesize():
 # --- MAIN EXECUTION ---
 if __name__ == "__main__":
     print("Starting Flask server...")
-    print_memory_usage("(Final)")
+    print_memory_usage("(Startup)")
     print("Access the application at http://127.0.0.1:5000")
     app.run(debug=True, port=5000, threaded=True)
 
