@@ -14,16 +14,14 @@ from flask_pymongo import PyMongo
 import datetime
 from pymongo.errors import ConnectionFailure
 import re
+import secrets
 
-# --- INITIALIZATION ---
 load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "a-super-secret-key-that-should-be-changed")
 
-# Memory optimization: Force garbage collection
 gc.collect()
 
-# Print initial memory usage
 def print_memory_usage(stage=""):
     memory_info = psutil.virtual_memory()
     print(f"🧠 Memory Usage {stage}: {memory_info.percent:.1f}% ({memory_info.used / 1024 / 1024:.1f} MB / {memory_info.total / 1024 / 1024:.1f} MB)")
@@ -70,7 +68,7 @@ else:
 try:
     print("🔄 Loading knowledge base...")
     vectorstore = DataScienceKnowledgeExtractor.load_knowledge_base()
-    retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+    retriever = vectorstore.as_retriever(search_kwargs={"k": 2})  # Reduced from 3 to 2
     print_memory_usage("(After Knowledge Base Load)")
     gc.collect()  # Force garbage collection after loading
 except FileNotFoundError:
@@ -227,6 +225,73 @@ def logout():
     session.clear()
     flash('You have been logged out.', 'info')
     return redirect(url_for('landing'))
+
+@app.route('/forgot_password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        db = mongo.cx[DB_NAME]
+        users_collection = db[USERS_COLLECTION_NAME]
+        
+        email = request.form['email']
+        user = users_collection.find_one({"email": email})
+        
+        if user:
+            # Generate a simple reset token (in production, use a more secure method)
+            reset_token = secrets.token_urlsafe(32)
+            
+            # Store reset token with expiration (24 hours)
+            users_collection.update_one(
+                {"email": email},
+                {"$set": {
+                    "reset_token": reset_token,
+                    "reset_token_expires": datetime.datetime.utcnow() + datetime.timedelta(hours=24)
+                }}
+            )
+            
+            flash('Password reset instructions have been sent to your email.', 'success')
+            # In production, you would send an email here
+            print(f"Reset token for {email}: {reset_token}")
+        else:
+            flash('Email not found.', 'error')
+    
+    return render_template('forgot_password.html')
+
+@app.route('/reset_password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    db = mongo.cx[DB_NAME]
+    users_collection = db[USERS_COLLECTION_NAME]
+    
+    user = users_collection.find_one({
+        "reset_token": token,
+        "reset_token_expires": {"$gt": datetime.datetime.utcnow()}
+    })
+    
+    if not user:
+        flash('Invalid or expired reset token.', 'error')
+        return redirect(url_for('login'))
+    
+    if request.method == 'POST':
+        new_password = request.form['new_password']
+        confirm_password = request.form['confirm_password']
+        
+        if new_password != confirm_password:
+            flash('Passwords do not match.', 'error')
+        elif len(new_password) < 6:
+            flash('Password must be at least 6 characters long.', 'error')
+        else:
+            # Update password and clear reset token
+            users_collection.update_one(
+                {"_id": user['_id']},
+                {"$set": {
+                    "password": generate_password_hash(new_password),
+                    "reset_token": None,
+                    "reset_token_expires": None
+                }}
+            )
+            flash('Password has been reset successfully. Please log in.', 'success')
+            return redirect(url_for('login'))
+    
+    return render_template('reset_password.html', token=token)
 
 
 # --- CORE APPLICATION ROUTES ---

@@ -1,8 +1,7 @@
 import os
 import faiss
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
-# --- UPDATED IMPORT ---
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.document_loaders import PyPDFLoader
 
@@ -27,14 +26,12 @@ class DataScienceKnowledgeExtractor:
         self.documents = []
         self.vectorstore = None
         
-        # Use a lightweight, memory-efficient embedding model
-        print("   -> Initializing lightweight embedding model (paraphrase-MiniLM-L6-v2)...")
+        print("   -> Initializing embedding model...")
         self.embedding_model = HuggingFaceEmbeddings(
             model_name="sentence-transformers/paraphrase-MiniLM-L6-v2",
-            model_kwargs={'device': 'cpu'}, # Use CPU for broad compatibility
-            encode_kwargs={'normalize_embeddings': True} # Normalize for better performance
+            model_kwargs={'device': 'cpu'},
+            encode_kwargs={'normalize_embeddings': True}
         )
-        print("   -> Embedding model initialized.")
 
     def extract_knowledge_from_pdf(self):
         """
@@ -45,10 +42,10 @@ class DataScienceKnowledgeExtractor:
         raw_documents = loader.load()
         print(f"   -> Loaded {len(raw_documents)} pages from PDF.")
 
-        print("   -> Splitting documents into optimized chunks...")
+        print("   -> Splitting documents into chunks...")
         text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=800,  # Reduced for memory efficiency
-            chunk_overlap=80,  # Reduced overlap
+            chunk_size=800,
+            chunk_overlap=80,
             separators=["\n\n", "\n", ".", " "]
         )
         self.documents = text_splitter.split_documents(raw_documents)
@@ -102,7 +99,6 @@ class DataScienceKnowledgeExtractor:
             raise FileNotFoundError(f"Knowledge base directory not found at '{knowledge_base_dir}'. Please run the extraction script first.")
 
         print("   -> Loading knowledge base...")
-        # --- UPDATED CLASS USAGE ---
         embedding_model = HuggingFaceEmbeddings(
             model_name="sentence-transformers/paraphrase-MiniLM-L6-v2",
             model_kwargs={'device': 'cpu'},
