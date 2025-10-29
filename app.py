@@ -15,6 +15,8 @@ import datetime
 from pymongo.errors import ConnectionFailure
 import re
 import secrets
+import smtplib
+from email.message import EmailMessage
 
 load_dotenv()
 app = Flask(__name__)
@@ -50,6 +52,33 @@ except ConnectionFailure as e:
     print("\n❌ MongoDB connection failed. Please check your MONGO_URI and network access rules.")
     print(f"Error details: {e}\n")
     exit()
+# --- EMAIL CONFIGURATION ---
+SMTP_HOST = os.getenv("SMTP_HOST")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER = os.getenv("SMTP_USER")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+MAIL_FROM = os.getenv("MAIL_FROM", SMTP_USER or "")
+
+def send_email(to_email: str, subject: str, body: str) -> bool:
+    if not (SMTP_HOST and SMTP_PORT and SMTP_USER and SMTP_PASSWORD and MAIL_FROM):
+        print("⚠️ Email not configured; skipping send.")
+        return False
+    try:
+        msg = EmailMessage()
+        msg["From"] = MAIL_FROM
+        msg["To"] = to_email
+        msg["Subject"] = subject
+        msg.set_content(body)
+
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30) as server:
+            server.starttls()
+            server.login(SMTP_USER, SMTP_PASSWORD)
+            server.send_message(msg)
+        print(f"📧 Email sent to {to_email}")
+        return True
+    except Exception as e:
+        print(f"❌ Failed to send email: {e}")
+        return False
 
 
 # --- API & MODEL CONFIGURATION ---
@@ -68,7 +97,8 @@ def get_llm():
     global llm
     if llm is None:
         print("🔄 Loading LLM model...")
-        llm = ChatGroq(model_name="mixtral-8x7b-32768")
+        # Use a lighter, faster model to reduce latency and memory on Render
+        llm = ChatGroq(model_name="llama-3.1-8b-instant")
         print("✅ LLM model loaded")
     return llm
 
@@ -88,7 +118,7 @@ vectorstore = None
 retriever = None
 
 def get_knowledge_base():
-    """Lazy load the knowledge base only when needed"""
+    """Lazy load the knowledge base only when needed. If loading fails, return (None, None)."""
     global vectorstore, retriever
     
     if vectorstore is None:
@@ -103,12 +133,12 @@ def get_knowledge_base():
             gc.collect()
             print("✅ Knowledge base loaded")
         except FileNotFoundError:
-            print("\n[ERROR] Knowledge base not found. Run 'python run_extraction.py' first.\n")
-            raise
+            print("\n⚠️ Knowledge base directory not found. Continuing without RAG context.\n")
+            vectorstore, retriever = None, None
         except Exception as e:
-            print(f"\n[ERROR] Failed to load knowledge base: {e}\n")
+            print(f"\n⚠️ Knowledge base load failed: {e}. Continuing without RAG context.\n")
             gc.collect()
-            raise
+            vectorstore, retriever = None, None
     
     return vectorstore, retriever
 
@@ -182,11 +212,18 @@ final_evaluation_prompt = ChatPromptTemplate.from_template(final_evaluation_temp
 
 
 def create_question_generation_chain():
-    """Create the question generation chain with lazy-loaded retriever and LLM"""
-    _, retriever = get_knowledge_base()
+    """Create the question generation chain with optional retriever and lazy-loaded LLM.
+    Falls back to no-context generation if retriever is unavailable.
+    """
+    _, _retriever = get_knowledge_base()
     llm = get_llm()
+    if _retriever is not None:
+        return (
+            {"context": _retriever, "topic": RunnablePassthrough()} | question_prompt | llm | StrOutputParser()
+        )
+    # Fallback: no RAG context
     return (
-        {"context": retriever, "topic": RunnablePassthrough()} | question_prompt | llm | StrOutputParser()
+        {"context": "", "topic": RunnablePassthrough()} | question_prompt | llm | StrOutputParser()
     )
 
 def create_relevance_check_chain():
@@ -283,25 +320,57 @@ def forgot_password():
         user = users_collection.find_one({"email": email})
         
         if user:
-            # Generate a simple reset token (in production, use a more secure method)
-            reset_token = secrets.token_urlsafe(32)
-            
-            # Store reset token with expiration (24 hours)
+            # Generate a 6-digit OTP
+            otp_code = f"{secrets.randbelow(1000000):06d}"
             users_collection.update_one(
                 {"email": email},
                 {"$set": {
-                    "reset_token": reset_token,
-                    "reset_token_expires": datetime.datetime.utcnow() + datetime.timedelta(hours=24)
+                    "otp_code": otp_code,
+                    "otp_expires": datetime.datetime.utcnow() + datetime.timedelta(minutes=15)
                 }}
             )
-            
-            flash('Password reset instructions have been sent to your email.', 'success')
-            # In production, you would send an email here
-            print(f"Reset token for {email}: {reset_token}")
+            # Send email with OTP
+            email_sent = send_email(
+                email,
+                "Your password reset OTP",
+                f"Your OTP code is {otp_code}. It will expire in 15 minutes."
+            )
+            if email_sent:
+                flash('An OTP has been sent to your email. Please enter it below to continue.', 'success')
+            else:
+                flash('Failed to send OTP email. Please contact support or try again.', 'error')
+            return redirect(url_for('verify_otp', email=email))
         else:
             flash('Email not found.', 'error')
     
     return render_template('forgot_password.html')
+@app.route('/verify_otp', methods=['GET', 'POST'])
+def verify_otp():
+    db = mongo.cx[DB_NAME]
+    users_collection = db[USERS_COLLECTION_NAME]
+
+    email = request.args.get('email') or request.form.get('email')
+    if request.method == 'POST':
+        otp = request.form.get('otp')
+        if not email or not otp:
+            flash('Email and OTP are required.', 'error')
+        else:
+            user = users_collection.find_one({"email": email})
+            now = datetime.datetime.utcnow()
+            if user and user.get('otp_code') == otp and user.get('otp_expires') and user['otp_expires'] > now:
+                reset_token = secrets.token_urlsafe(32)
+                users_collection.update_one(
+                    {"_id": user['_id']},
+                    {"$set": {
+                        "reset_token": reset_token,
+                        "reset_token_expires": now + datetime.timedelta(hours=1)
+                    }, "$unset": {"otp_code": "", "otp_expires": ""}}
+                )
+                flash('OTP verified. You can now reset your password.', 'success')
+                return redirect(url_for('reset_password', token=reset_token))
+            else:
+                flash('Invalid or expired OTP.', 'error')
+    return render_template('verify_otp.html', email=email)
 
 @app.route('/reset_password/<token>', methods=['GET', 'POST'])
 def reset_password(token):
@@ -367,9 +436,32 @@ def interview():
 def ask_question():
     if 'username' not in session: return jsonify({"error": "Unauthorized"}), 401
     
-    data = request.get_json()
-    topic = data.get("topic")
-    if not topic: return jsonify({"error": "Topic not provided"}), 400
+    # Accept topic from JSON, form, or query to be robust to different clients
+    data = None
+    try:
+        data = request.get_json(silent=True) or {}
+    except Exception:
+        data = {}
+    topic = (
+        (data or {}).get("topic")
+        or request.form.get("topic")
+        or request.args.get("topic")
+    )
+    if not topic:
+        return jsonify({"error": "Topic not provided"}), 400
+
+    # Normalize and support phrases like "from the same" to reuse last topic
+    topic_normalized_input = str(topic).strip().strip('"\'').lower()
+    reuse_phrases = {"same", "from the same", "same topic", "continue", "more", "another", "next"}
+    if topic_normalized_input in reuse_phrases:
+        last_topic = session.get('last_topic')
+        if last_topic:
+            topic = last_topic
+        else:
+            return jsonify({"error": "No previous topic to continue from. Please enter a topic like 'Neural Networks'."})
+    else:
+        # Store last concrete topic
+        session['last_topic'] = topic
 
     # Topic validation
     topic_lower = topic.lower().strip()
@@ -389,9 +481,41 @@ def ask_question():
         if 'interview_history' not in session:
             session['interview_history'] = []
         
-        question_generation_chain = create_question_generation_chain()
-        result = question_generation_chain.invoke(topic)
-        return jsonify({"question": result})
+        # Primary path: use chain (with retriever if available)
+        try:
+            question_generation_chain = create_question_generation_chain()
+            result = question_generation_chain.invoke(topic)
+            if not result or not str(result).strip():
+                raise ValueError("Empty question from chain")
+            return jsonify({"question": str(result).strip()})
+        except Exception as chain_err:
+            print(f"/ask chain failed: {chain_err}")
+            # Fallback: direct prompt without RAG/chain
+            try:
+                llm_instance = get_llm()
+                prompt = (
+                    "You are an expert data science interviewer. "
+                    f"Generate one concise, practical interview question about '{topic}'. "
+                    "Return only the question."
+                )
+                result = llm_instance.invoke(prompt)
+                # Extract plain text from LLM result (handles AIMessage objects)
+                text = None
+                try:
+                    # LangChain messages usually have `.content`
+                    text = getattr(result, "content", None)
+                except Exception:
+                    text = None
+                if not text:
+                    text = str(result) if result is not None else ""
+                if not text.strip():
+                    raise ValueError("Empty question from LLM fallback")
+                return jsonify({"question": text.strip()})
+            except Exception as llm_err:
+                print(f"/ask LLM fallback failed: {llm_err}")
+                # Final static fallback so UI continues
+                generic = f"What are the key concepts and trade-offs involved in {topic}?"
+                return jsonify({"question": generic})
     except Exception as e:
         print(f"Error in /ask: {e}")
         gc.collect()

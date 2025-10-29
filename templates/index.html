@@ -67,8 +67,10 @@
 
         <!-- Input Area -->
         <footer class="p-4 bg-white border-t border-slate-200">
-            <form id="message-form" class="flex items-center gap-3">
-                <input type="text" id="message-input" placeholder="Enter a topic or your answer..." class="flex-1 p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition duration-200" autocomplete="off">
+            <form id="message-form" class="flex items-start gap-3">
+                <textarea id="message-input" placeholder="Enter a topic or your answer..." rows="3"
+                    class="flex-1 p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition duration-200 resize-y min-h-[72px] max-h-60"
+                    autocomplete="off"></textarea>
                 <button type="submit" id="send-button" class="bg-purple-600 text-white font-semibold px-6 py-3 rounded-lg hover:bg-purple-700 transition duration-200 disabled:bg-purple-300 disabled:cursor-not-allowed flex items-center justify-center">Send</button>
             </form>
         </footer>
