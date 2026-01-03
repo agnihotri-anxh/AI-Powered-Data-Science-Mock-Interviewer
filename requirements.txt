@@ -13,3 +13,6 @@ elevenlabs
 pymongo
 flask-pymongo
 faiss-cpu
+edge-tts
+nest_asyncio
+groq

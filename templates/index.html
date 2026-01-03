@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,13 +8,35 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; }
-        #chat-container::-webkit-scrollbar { width: 8px; }
-        #chat-container::-webkit-scrollbar-track { background: #f1f5f9; }
-        #chat-container::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; }
-        #chat-container::-webkit-scrollbar-thumb:hover { background: #64748b; }
-        .ai-message .avatar { background-color: #8b5cf6; }
-        .user-message .avatar { background-color: #3b82f6; }
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        #chat-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #chat-container::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+
+        #chat-container::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 4px;
+        }
+
+        #chat-container::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+
+        .ai-message .avatar {
+            background-color: #8b5cf6;
+        }
+
+        .user-message .avatar {
+            background-color: #3b82f6;
+        }
+
         .loader {
             border: 4px solid #f3f3f3;
             border-top: 4px solid #8b5cf6;
@@ -22,240 +45,576 @@
             height: 24px;
             animation: spin 1s linear infinite;
         }
+
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .cursor-wait {
+            cursor: wait;
         }
     </style>
 </head>
+
 <body class="bg-slate-100 flex flex-col items-center justify-center min-h-screen p-4">
 
-    <div class="w-full max-w-4xl h-[90vh] bg-white rounded-2xl shadow-2xl flex flex-col">
+    <div class="w-full max-w-4xl h-[90vh] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden relative">
         <!-- Header -->
-        <header class="p-4 border-b border-slate-200 flex items-center justify-between">
+        <header class="p-4 border-b border-slate-200 flex items-center justify-between z-20 bg-white">
             <div>
                 <h1 class="text-xl font-bold text-slate-800">AI Data Science Interviewer</h1>
                 <p class="text-sm text-slate-500">Powered by "The Hundred-Page Machine Learning Book"</p>
             </div>
             <div class="flex items-center gap-4">
-                 <button id="mute-button" class="text-slate-500 hover:text-purple-600 focus:outline-none" title="Toggle Audio">
-                    <svg id="speaker-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
-                    <svg id="speaker-muted-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="hidden"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" x2="16" y1="9" y2="15"/><line x1="16" x2="22" y1="9" y2="15"/></svg>
+                <button id="mute-button" class="text-slate-500 hover:text-purple-600 focus:outline-none"
+                    title="Toggle Audio">
+                    <svg id="speaker-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                    </svg>
+                    <svg id="speaker-muted-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" class="hidden">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                        <line x1="22" x2="16" y1="9" y2="15" />
+                        <line x1="16" x2="22" y1="9" y2="15" />
+                    </svg>
                 </button>
-                <div id="status-indicator" class="w-3 h-3 bg-green-500 rounded-full" title="Ready"></div>
             </div>
         </header>
 
-        <!-- Chat Container -->
-        <div id="chat-container" class="flex-1 p-6 overflow-y-auto space-y-6">
-            <!-- Welcome Message -->
-            <div class="flex items-start gap-3 ai-message">
-                <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold avatar shrink-0">AI</div>
-                <div class="bg-slate-50 p-4 rounded-lg rounded-tl-none max-w-xl shadow-sm">
-                    <p class="text-slate-700">Hello! I'm your AI-powered mock interviewer. To begin, please enter a data science topic below (e.g., "Overfitting", "Gradient Descent", or "Support Vector Machines"), and I'll ask you a question about it.</p>
-                    <div class="mt-3 p-3 bg-blue-50 rounded-lg border-l-4 border-blue-400">
-                        <p class="text-sm text-blue-800"><strong>💡 Tips for better answers:</strong></p>
-                        <ul class="text-xs text-blue-700 mt-1 space-y-1">
-                            <li>• Provide technical explanations when possible</li>
-                            <li>• If unsure, say "I don't know" to move on</li>
-                            <li>• Stay focused on data science topics</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <!-- Main Interaction Area -->
+        <div class="flex-1 overflow-hidden flex flex-col relative" id="main-area">
 
-        <!-- Input Area -->
-        <footer class="p-4 bg-white border-t border-slate-200">
-            <form id="message-form" class="flex items-start gap-3">
-                <textarea id="message-input" placeholder="Enter a topic or your answer..." rows="3"
-                    class="flex-1 p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition duration-200 resize-y min-h-[72px] max-h-60"
-                    autocomplete="off"></textarea>
-                <button type="submit" id="send-button" class="bg-purple-600 text-white font-semibold px-6 py-3 rounded-lg hover:bg-purple-700 transition duration-200 disabled:bg-purple-300 disabled:cursor-not-allowed flex items-center justify-center">Send</button>
-            </form>
-        </footer>
+            <!-- Welcome / Start Screen -->
+            <div id="start-screen"
+                class="absolute inset-0 flex flex-col items-center justify-center p-8 bg-white z-10 transition-opacity duration-500">
+                <div class="w-24 h-24 bg-purple-100 rounded-full flex items-center justify-center mb-6">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-purple-600" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                        <line x1="12" y1="19" x2="12" y2="23"></line>
+                        <line x1="8" y1="23" x2="16" y2="23"></line>
+                    </svg>
+                </div>
+                <h2 class="text-3xl font-bold text-slate-800 mb-2">Voice Interview Mode</h2>
+                <p class="text-slate-500 text-center max-w-md mb-8">
+                    Answer 5 random Data Science questions. <br>
+                    You'll have 2 minutes to record your answer for each question. <br>
+                    The AI will evaluate your performance at the end.
+                </p>
+                <button id="start-interview-btn"
+                    class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 px-10 rounded-full shadow-lg transform transition hover:scale-105 active:scale-95 text-lg flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
+                    Start Interview
+                </button>
+            </div>
+
+            <!-- Chat Container (Hidden initially) -->
+            <div id="chat-container" class="flex-1 p-6 overflow-y-auto space-y-6 hidden pb-32">
+                <!-- Messages will appear here -->
+            </div>
+
+            <!-- Recording / Input Area -->
+            <footer id="interaction-footer"
+                class="p-4 bg-white border-t border-slate-200 hidden bg-opacity-95 backdrop-blur absolute bottom-0 w-full">
+                <div class="max-w-3xl mx-auto flex flex-col items-center gap-4">
+
+                    <!-- Timer Display -->
+                    <div id="timer-display"
+                        class="hidden text-slate-500 text-sm font-mono bg-slate-100 px-3 py-1 rounded-full flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                        <span id="time-remaining">00:00</span>
+                    </div>
+
+                    <!-- Controls -->
+                    <div class="flex items-center gap-4 w-full justify-center">
+                        <button id="record-btn"
+                            class="w-16 h-16 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg hover:bg-red-600 transition-all focus:outline-none ring-4 ring-transparent hover:ring-red-200">
+                            <svg id="mic-icon" xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                                <line x1="12" y1="19" x2="12" y2="23"></line>
+                                <line x1="8" y1="23" x2="16" y2="23"></line>
+                            </svg>
+                            <div id="stop-icon" class="hidden w-6 h-6 bg-white rounded-sm"></div>
+                        </button>
+                    </div>
+
+                    <p id="status-text" class="text-sm text-slate-400">Tap to record answer</p>
+                </div>
+            </footer>
+        </div>
     </div>
 
     <script>
+        // DOM Elements
+        const startScreen = document.getElementById('start-screen');
         const chatContainer = document.getElementById('chat-container');
-        const messageForm = document.getElementById('message-form');
-        const messageInput = document.getElementById('message-input');
-        const sendButton = document.getElementById('send-button');
-        const statusIndicator = document.getElementById('status-indicator');
+        const interactionFooter = document.getElementById('interaction-footer');
+        const startBtn = document.getElementById('start-interview-btn');
+        const recordBtn = document.getElementById('record-btn');
+        const micIcon = document.getElementById('mic-icon');
+        const stopIcon = document.getElementById('stop-icon');
+        const statusText = document.getElementById('status-text');
+        const timerDisplay = document.getElementById('timer-display');
+        const timeRemainingEl = document.getElementById('time-remaining');
+
+        // State
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+        let timerInterval;
+        let currentQuestion = "";
+        let questionCount = 0;
+        let isProcessing = false;
+
+        // Track current audio object to allow stopping it
+        let currentAudio = null;
+
+        // Audio Setup
+        let isMuted = false;
+
+        // Mute Button Logic
         const muteButton = document.getElementById('mute-button');
         const speakerIcon = document.getElementById('speaker-icon');
         const speakerMutedIcon = document.getElementById('speaker-muted-icon');
 
-        let interviewState = 'AWAITING_TOPIC';
-        let currentQuestion = '';
-        let isMuted = false;
-        let currentAudio = null;
+        if (muteButton) {
+            muteButton.addEventListener('click', () => {
+                isMuted = !isMuted; // Toggle state
 
-        window.addEventListener('DOMContentLoaded', () => {
-            const welcomeText = document.querySelector('.ai-message p').textContent;
-            playAudio(welcomeText);
-        });
+                // Update UI
+                if (speakerIcon) speakerIcon.classList.toggle('hidden', isMuted);
+                if (speakerMutedIcon) speakerMutedIcon.classList.toggle('hidden', !isMuted);
 
-        muteButton.addEventListener('click', () => {
-            isMuted = !isMuted;
-            speakerIcon.classList.toggle('hidden', isMuted);
-            speakerMutedIcon.classList.toggle('hidden', !isMuted);
-            if (isMuted && currentAudio) {
-                currentAudio.pause();
-                currentAudio = null;
-            }
-        });
+                // Stop any active audio immediately
+                stopAudioPlayback();
+            });
+        }
 
-        messageForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const userInput = messageInput.value.trim();
-            if (!userInput) return;
-            
+        function stopAudioPlayback() {
+            // Stop Browser TTS
+            window.speechSynthesis.cancel();
+
+            // Stop Backend TTS (EdgeTTS)
             if (currentAudio) {
                 currentAudio.pause();
+                currentAudio.currentTime = 0;
                 currentAudio = null;
             }
+        }
 
-            toggleLoading(true);
-            messageInput.value = '';
+        // --- Event Listeners ---
+        if (startBtn) startBtn.addEventListener('click', startInterview);
 
-            if (interviewState === 'AWAITING_TOPIC') {
-                displayMessage(userInput, 'user');
-                await getQuestion(userInput);
+        if (recordBtn) recordBtn.addEventListener('click', async () => {
+            if (isProcessing) return;
+            if (!isRecording) {
+                // Determine if we need to stop audio before recording?
+                stopAudioPlayback();
+                await startRecording();
             } else {
-                displayMessage(userInput, 'user');
-                await getEvaluation(userInput);
+                await stopRecording();
             }
-            toggleLoading(false);
         });
 
-        function displayMessage(message, sender) {
-            const isAI = sender === 'ai';
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `flex items-start gap-3 ${isAI ? 'ai-message' : 'user-message flex-row-reverse'}`;
-            
-            const avatar = `<div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold avatar shrink-0">${isAI ? 'AI' : 'You'}</div>`;
-            const textBubble = `<div class="p-4 rounded-lg max-w-xl shadow-sm ${isAI ? 'bg-slate-50 rounded-tl-none' : 'bg-blue-500 text-white rounded-tr-none'}"><p>${message.replace(/\n/g, '<br>')}</p></div>`;
-            
-            messageDiv.innerHTML = avatar + textBubble;
-            chatContainer.appendChild(messageDiv);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
+        // --- core Functions ---
+
+        async function startInterview() {
+            startScreen.classList.add('hidden');
+            startScreen.classList.add('opacity-0');
+            setTimeout(() => startScreen?.remove(), 500);
+
+            chatContainer.classList.remove('hidden');
+            interactionFooter.classList.remove('hidden');
+
+            // Initial AI Greeting using template variable
+            // ensuring it is treated as a string literal
+            const introText = "{{ initial_message }}";
+
+            // Pass true for 'speak' to ensure it plays
+            await displayMessage(introText, 'ai', true);
+
+            // Get first question AFTER intro is done
+            await getNextQuestion();
+        }
+
+        async function getNextQuestion() {
+            setProcessing(true);
+            try {
+                // Send dummy topic to trigger random generator
+                const response = await fetch('/ask', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ topic: "start_random_flow" })
+                });
+
+                const data = await response.json();
+
+                if (data.interview_over) {
+                    // Should technically be caught by submitAnswer, but safety net
+                    finishInterviewState();
+                    return;
+                }
+
+                if (data.error) {
+                    displayMessage("Error: " + data.error, 'ai');
+                    setProcessing(false);
+                    return;
+                }
+
+                currentQuestion = data.question;
+                questionCount = data.question_number || (questionCount + 1);
+
+                await displayMessage(`Question ${questionCount}/5: ${currentQuestion}`, 'ai', true);
+
+                setProcessing(false);
+                statusText.innerText = "Tap to record answer";
+
+            } catch (e) {
+                console.error(e);
+                displayMessage("Connection error. Please restart.", 'ai');
+                setProcessing(false);
+            }
+        }
+
+        async function submitAnswer(transcribedText) {
+            setProcessing(true);
+            // Don't speak user's own text back to them
+            displayMessage(transcribedText, 'user', false);
+
+            try {
+                const response = await fetch('/submit_answer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        question: currentQuestion,
+                        answer: transcribedText
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.interview_over) {
+                    await displayMessage("That concludes the interview! Here is your evaluation:", 'ai', true);
+                    // Clean up feedback text slightly if needed
+                    const feedback = data.feedback;
+                    await displayMessage(feedback, 'ai', false); // Maybe don't read the whole long feedback?
+                    finishInterviewState();
+                } else {
+                    // Get next question
+                    await getNextQuestion();
+                }
+
+            } catch (e) {
+                console.error(e);
+                displayMessage("Error submitting answer.", 'ai');
+            }
+            setProcessing(false);
+        }
+
+        async function startRecording() {
+            try {
+                // Try with ideal constraints first, but don't force them strictly if they cause failure
+                const constraints = {
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    }
+                };
+
+                let stream;
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia(constraints);
+                } catch (e) {
+                    console.warn("Enhanced constraints failed, falling back to basic audio", e);
+                    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                }
+
+                // Visual Feedback Setup
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const source = audioContext.createMediaStreamSource(stream);
+                const analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                source.connect(analyser);
+                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+                // Visualizer Loop
+                function updateVisualizer() {
+                    if (!isRecording) {
+                        audioContext.close();
+                        return;
+                    }
+                    requestAnimationFrame(updateVisualizer);
+                    analyser.getByteFrequencyData(dataArray);
+                    const volume = dataArray.reduce((src, a) => src + a, 0) / dataArray.length;
+
+                    // Update Record Button Pulse based on volume
+                    const intensity = Math.min(volume / 128, 1);
+                    recordBtn.style.transform = `scale(${1 + intensity * 0.2})`;
+
+                    // Optional: Update status text if volume is too low
+                    if (volume < 5) {
+                        statusText.innerText = "Listening (No sound detected)...";
+                    } else {
+                        statusText.innerText = "Recording... Tap to stop";
+                    }
+                }
+
+                // Check for supported mime types
+                let options = {};
+                if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+                    options = { mimeType: 'audio/webm;codecs=opus' };
+                } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+                    options = { mimeType: 'audio/mp4' };
+                }
+
+                mediaRecorder = new MediaRecorder(stream, options);
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        audioChunks.push(event.data);
+                    }
+                };
+
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' }); // Uniform type for upload
+                    stream.getTracks().forEach(track => track.stop());
+                    audioContext.close(); // Cleanup visualizer context
+                    // Restore button style
+                    recordBtn.style.transform = '';
+                    await handleAudioUpload(audioBlob);
+                };
+
+                mediaRecorder.start();
+                isRecording = true;
+                updateRecordingUI(true);
+                updateVisualizer(); // Start visualizer
+                startTimer(120);
+
+            } catch (e) {
+                console.error("Microphone access denied or error:", e);
+                alert("Could not access microphone: " + e.message);
+                setProcessing(false);
+            }
+        }
+
+        async function stopRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                isRecording = false;
+                updateRecordingUI(false);
+                stopTimer();
+            }
+        }
+
+        async function handleAudioUpload(blob) {
+            setProcessing(true);
+            statusText.innerText = "Transcribing...";
+
+            const formData = new FormData();
+            formData.append('audio_data', blob, 'recording.webm');
+
+            try {
+                const response = await fetch('/transcribe', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error("Transcription failed");
+
+                const data = await response.json();
+                if (data.error) {
+                    displayMessage("Transcription error: " + data.error, 'ai');
+                    setProcessing(false);
+                    statusText.innerText = "Error. Tap to retry.";
+                } else {
+                    const text = data.text;
+                    if (!text || text.trim().length <= 2) {
+                        statusText.innerText = "Audio unclear. Tap to record again.";
+                        setProcessing(false);
+                        displayMessage("(Audio was unclear or silent, please try again/speak closer)", 'ai');
+                    } else {
+                        submitAnswer(text);
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+                setProcessing(false);
+                statusText.innerText = "Error uploading. Try again.";
+            }
+        }
+
+        // --- UI Helper Functions ---
+
+        function updateRecordingUI(recording) {
+            if (recording) {
+                recordBtn.classList.add('ring-4', 'ring-red-200', 'animate-pulse');
+                micIcon.classList.add('hidden');
+                stopIcon.classList.remove('hidden');
+                timerDisplay.classList.remove('hidden');
+                statusText.innerText = "Recording... Tap to stop";
+            } else {
+                recordBtn.classList.remove('ring-4', 'ring-red-200', 'animate-pulse');
+                micIcon.classList.remove('hidden');
+                stopIcon.classList.add('hidden');
+                timerDisplay.classList.add('hidden');
+                statusText.innerText = "Processing...";
+            }
+        }
+
+        function startTimer(seconds) {
+            let remaining = seconds;
+            updateTimerDisplay(remaining);
+            timerInterval = setInterval(() => {
+                remaining--;
+                updateTimerDisplay(remaining);
+                if (remaining <= 0) {
+                    stopRecording(); // Auto stop
+                }
+            }, 1000);
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+        }
+
+        function updateTimerDisplay(seconds) {
+            const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+            const s = (seconds % 60).toString().padStart(2, '0');
+            if (timeRemainingEl) timeRemainingEl.innerText = `${m}:${s}`;
+        }
+
+        function setProcessing(processing) {
+            isProcessing = processing;
+            if (recordBtn) {
+                recordBtn.disabled = processing;
+                if (processing) {
+                    recordBtn.classList.add('opacity-50', 'cursor-wait');
+                } else {
+                    recordBtn.classList.remove('opacity-50', 'cursor-wait');
+                }
+            }
+        }
+
+        function finishInterviewState() {
+            interactionFooter.classList.add('hidden');
+            const restartBtn = document.createElement('button');
+            restartBtn.innerText = "Start New Interview";
+            restartBtn.className = "fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-purple-600 text-white px-6 py-3 rounded-full shadow-lg hover:bg-purple-700 font-semibold";
+            restartBtn.onclick = () => window.location.reload();
+            document.body.appendChild(restartBtn);
+        }
+
+        // --- Chat & Audio ---
+
+        function displayMessage(text, sender, speak = false) {
+            return new Promise(resolve => {
+                const isAI = sender === 'ai';
+                const div = document.createElement('div');
+                div.className = `flex items-start gap-3 ${isAI ? 'ai-message' : 'user-message flex-row-reverse'}`;
+
+                div.innerHTML = `
+                   <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold avatar shrink-0" style="background-color: ${isAI ? '{{ "#8b5cf6" }}' : '{{ "#3b82f6" }}'}">${isAI ? 'AI' : 'You'}</div>
+                   <div class="p-4 rounded-lg max-w-xl shadow-sm ${isAI ? 'bg-slate-50 rounded-tl-none' : 'bg-blue-500 text-white rounded-tr-none'}">
+                       <p>${text.replace(/\n/g, '<br>')}</p>
+                   </div>
+                `;
+                chatContainer.appendChild(div);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+
+                if (speak && isAI && !isMuted) {
+                    // Play audio and resolve after
+                    playAudio(text).then(resolve);
+                } else {
+                    resolve();
+                }
+            });
         }
 
         async function playAudio(text) {
-            if (isMuted || !text) return;
-            if (currentAudio) {
-                currentAudio.pause();
-            }
+            if (isMuted) return Promise.resolve();
+
+            // Stop any existing audio before playing new
+            stopAudioPlayback();
+
             try {
+                window.speechSynthesis.cancel();
+
                 const response = await fetch('/synthesize', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ text })
                 });
-                if (!response.ok) throw new Error(`Audio synthesis failed`);
-                
-                const blob = await response.blob();
-                const audioUrl = URL.createObjectURL(blob);
-                currentAudio = new Audio(audioUrl);
-                currentAudio.play();
-                currentAudio.addEventListener('ended', () => { currentAudio = null; });
-            } catch (error) {
-                console.error("Audio playback error:", error);
-            }
-        }
 
-        function displayLoadingIndicator() {
-            const loadingDiv = document.createElement('div');
-            loadingDiv.id = 'loading-indicator';
-            loadingDiv.className = 'flex items-start gap-3 ai-message';
-            loadingDiv.innerHTML = `
-                <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold avatar">AI</div>
-                <div class="bg-slate-50 p-4 rounded-lg rounded-tl-none max-w-xl shadow-sm flex items-center"><div class="loader"></div></div>`;
-            chatContainer.appendChild(loadingDiv);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-        }
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = URL.createObjectURL(blob);
 
-        function removeLoadingIndicator() {
-            document.getElementById('loading-indicator')?.remove();
-        }
+                    // Store strict reference
+                    currentAudio = new Audio(url);
 
-        async function getQuestion(topic) {
-            displayLoadingIndicator();
-            try {
-                const response = await fetch('/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ topic }) });
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                const data = await response.json();
-                
-                removeLoadingIndicator();
-                
-                if (data.error) {
-                    // Handle topic validation errors
-                    displayMessage(data.error, 'ai');
-                    await playAudio(data.error);
-                    interviewState = 'AWAITING_TOPIC';
-                    messageInput.placeholder = "Enter a data science topic...";
+                    return new Promise(resolve => {
+                        if (!currentAudio) { resolve(); return; }
+
+                        currentAudio.onended = () => {
+                            currentAudio = null;
+                            resolve();
+                        };
+                        currentAudio.onerror = () => {
+                            currentAudio = null;
+                            playBrowserFallback(text);
+                            resolve();
+                        };
+
+                        currentAudio.play().catch(e => {
+                            console.warn("Autoplay blocked/failed", e);
+                            currentAudio = null; // Clear if failed
+                            playBrowserFallback(text);
+                            resolve();
+                        });
+                    });
                 } else {
-                    currentQuestion = data.question;
-                    displayMessage(currentQuestion, 'ai');
-                    await playAudio(currentQuestion);
-                    
-                    interviewState = 'AWAITING_ANSWER';
-                    messageInput.placeholder = "Type your answer here...";
+                    throw new Error("Backend synth failed");
                 }
-            } catch (error) {
-                console.error("Error fetching question:", error);
-                removeLoadingIndicator();
-                displayMessage("Sorry, I encountered an error. Please try another topic.", 'ai');
+            } catch (e) {
+                playBrowserFallback(text);
+                return Promise.resolve();
             }
         }
 
-        async function getEvaluation(answer) {
-            displayLoadingIndicator();
-            try {
-                const response = await fetch('/submit_answer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: currentQuestion, answer }) });
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                const data = await response.json();
-                
-                removeLoadingIndicator();
-                
-                if (data.interview_over) {
-                    // Interview is complete - show final feedback
-                    displayMessage(data.feedback, 'ai');
-                    await playAudio(data.feedback);
-                    interviewState = 'AWAITING_TOPIC';
-                    messageInput.placeholder = "Interview complete! Enter a new topic to start again...";
-                    currentQuestion = '';
-                } else {
-                    // Continue with follow-up message
-                    displayMessage(data.message, 'ai');
-                    await playAudio(data.message);
-                    
-                    // Check if this is a guidance message for off-topic response
-                    if (data.message.includes("doesn't seem to relate") || data.message.includes("not a proper answer")) {
-                        interviewState = 'AWAITING_ANSWER'; // Stay in answer mode
-                        messageInput.placeholder = "Please provide a relevant answer to the question...";
-                    } else {
-                        interviewState = 'AWAITING_TOPIC';
-                        messageInput.placeholder = "Enter a new topic...";
-                        currentQuestion = '';
-                    }
-                }
-            } catch (error) {
-                console.error("Error fetching evaluation:", error);
-                removeLoadingIndicator();
-                displayMessage("Sorry, I had trouble evaluating that. Please provide a new topic.", 'ai');
-            }
+        function playBrowserFallback(text) {
+            if (isMuted) return;
+            console.log("Using browser fallback");
+            const u = new SpeechSynthesisUtterance(text);
+            u.rate = 1.0;
+            window.speechSynthesis.speak(u);
         }
-        
-        function toggleLoading(isLoading) {
-            sendButton.disabled = isLoading;
-            messageInput.disabled = isLoading;
-            statusIndicator.classList.toggle('animate-pulse', isLoading);
-            statusIndicator.classList.toggle('bg-yellow-500', isLoading);
-            statusIndicator.classList.toggle('bg-green-500', !isLoading);
-        }
+
     </script>
 </body>
-</html>
 
+</html>
